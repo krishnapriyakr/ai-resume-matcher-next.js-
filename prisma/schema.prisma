@@ -1,0 +1,208 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ========== User Model ==========
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  password      String?   // Hashed password (optional for OAuth)
+  role          Role      @default(USER)
+  image         String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  resumes       Resume[]
+  jobs          Job[]     @relation("JobCreator")
+  applications  Application[]
+  savedJobs     SavedJob[]
+  messages      Message[] @relation("Sender")
+  receivedMsgs  Message[] @relation("Receiver")
+
+  @@map("users")
+}
+
+// ========== Resume Model ==========
+model Resume {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  fileName        String
+  fileUrl         String
+  fileSize        Int
+  fileType        String
+  status          ResumeStatus @default(PENDING)
+  
+  // Parsed Data
+  parsedText      String?   @db.Text
+  skills          String[]  // Extracted skills
+  experience      String?   @db.Text
+  education       String?   @db.Text
+  workExperience  Json?     // Structured work experience
+  
+  matchScore      Float?    // Average match score across jobs
+  parsedAt        DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  applications    Application[]
+  matches         JobMatch[]
+
+  @@map("resumes")
+}
+
+// ========== Job Model ==========
+model Job {
+  id              String    @id @default(cuid())
+  title           String
+  description     String    @db.Text
+  company         String
+  location        String?
+  salaryMin       Int?
+  salaryMax       Int?
+  employmentType  EmploymentType @default(FULL_TIME)
+  experienceLevel ExperienceLevel @default(MID)
+  skills          String[]      // Required skills
+  postedBy        String
+  creator         User      @relation(fields: [postedBy], references: [id], name: "JobCreator")
+  status          JobStatus @default(OPEN)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  expiresAt       DateTime?
+
+  // Relations
+  applications    Application[]
+  matches         JobMatch[]
+  savedBy         SavedJob[]
+
+  @@map("jobs")
+}
+
+// ========== Application Model ==========
+model Application {
+  id          String    @id @default(cuid())
+  jobId       String
+  job         Job       @relation(fields: [jobId], references: [id])
+  resumeId    String
+  resume      Resume    @relation(fields: [resumeId], references: [id])
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  status      ApplicationStatus @default(SUBMITTED)
+  matchScore  Float?    // AI match score
+  coverLetter String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([jobId, resumeId])  // One resume per job
+  @@map("applications")
+}
+
+// ========== Job Match (AI matching result) ==========
+model JobMatch {
+  id          String    @id @default(cuid())
+  jobId       String
+  job         Job       @relation(fields: [jobId], references: [id])
+  resumeId    String
+  resume      Resume    @relation(fields: [resumeId], references: [id])
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  
+  // AI Scores (0-100)
+  overallScore    Float
+  skillMatch      Float
+  experienceMatch Float
+  educationMatch  Float
+  
+  // AI Analysis
+  strengths       String[]  // Candidate strengths
+  gaps            String[]  // Missing skills
+  summary         String?   @db.Text
+  
+  isViewed        Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+
+  @@map("job_matches")
+}
+
+// ========== Saved Jobs (Bookmarks) ==========
+model SavedJob {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  jobId       String
+  job         Job       @relation(fields: [jobId], references: [id])
+  createdAt   DateTime  @default(now())
+
+  @@unique([userId, jobId])
+  @@map("saved_jobs")
+}
+
+// ========== Message System ==========
+model Message {
+  id          String    @id @default(cuid())
+  senderId    String
+  sender      User      @relation(fields: [senderId], references: [id], name: "Sender")
+  receiverId  String
+  receiver    User      @relation(fields: [receiverId], references: [id], name: "Receiver")
+  content     String    @db.Text
+  jobId       String?   // Optional job context
+  read        Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  @@map("messages")
+}
+
+// ========== Enums ==========
+
+enum Role {
+  ADMIN
+  HR
+  USER
+}
+
+enum ResumeStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+  REMOTE
+}
+
+enum ExperienceLevel {
+  ENTRY
+  MID
+  SENIOR
+  LEAD
+}
+
+enum JobStatus {
+  OPEN
+  CLOSED
+  DRAFT
+}
+
+enum ApplicationStatus {
+  SUBMITTED
+  REVIEWING
+  SHORTLISTED
+  INTERVIEWING
+  REJECTED
+  HIRED
+}
