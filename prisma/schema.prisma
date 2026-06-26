@@ -1,5 +1,3 @@
-// prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,7 +11,7 @@ model User {
   id            String    @id @default(cuid())
   name          String?
   email         String    @unique
-  password      String?   // Hashed password (optional for OAuth)
+  password      String?
   role          Role      @default(USER)
   image         String?
   emailVerified DateTime?
@@ -27,6 +25,7 @@ model User {
   savedJobs     SavedJob[]
   messages      Message[] @relation("Sender")
   receivedMsgs  Message[] @relation("Receiver")
+  jobMatches    JobMatch[]  // ✅ ADD THIS LINE
 
   @@map("users")
 }
@@ -42,19 +41,16 @@ model Resume {
   fileType        String
   status          ResumeStatus @default(PENDING)
   
-  // Parsed Data
   parsedText      String?   @db.Text
-  skills          String[]  // Extracted skills
+  skills          String[]
   experience      String?   @db.Text
   education       String?   @db.Text
-  workExperience  Json?     // Structured work experience
-  
-  matchScore      Float?    // Average match score across jobs
+  workExperience  Json?
+  matchScore      Float?
   parsedAt        DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  // Relations
   applications    Application[]
   matches         JobMatch[]
 
@@ -72,7 +68,7 @@ model Job {
   salaryMax       Int?
   employmentType  EmploymentType @default(FULL_TIME)
   experienceLevel ExperienceLevel @default(MID)
-  skills          String[]      // Required skills
+  skills          String[]
   postedBy        String
   creator         User      @relation(fields: [postedBy], references: [id], name: "JobCreator")
   status          JobStatus @default(OPEN)
@@ -80,7 +76,6 @@ model Job {
   updatedAt       DateTime  @updatedAt
   expiresAt       DateTime?
 
-  // Relations
   applications    Application[]
   matches         JobMatch[]
   savedBy         SavedJob[]
@@ -98,16 +93,16 @@ model Application {
   userId      String
   user        User      @relation(fields: [userId], references: [id])
   status      ApplicationStatus @default(SUBMITTED)
-  matchScore  Float?    // AI match score
+  matchScore  Float?
   coverLetter String?   @db.Text
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  @@unique([jobId, resumeId])  // One resume per job
+  @@unique([jobId, resumeId])
   @@map("applications")
 }
 
-// ========== Job Match (AI matching result) ==========
+// ========== Job Match ==========
 model JobMatch {
   id          String    @id @default(cuid())
   jobId       String
@@ -117,24 +112,20 @@ model JobMatch {
   userId      String
   user        User      @relation(fields: [userId], references: [id])
   
-  // AI Scores (0-100)
   overallScore    Float
   skillMatch      Float
   experienceMatch Float
   educationMatch  Float
-  
-  // AI Analysis
-  strengths       String[]  // Candidate strengths
-  gaps            String[]  // Missing skills
+  strengths       String[]
+  gaps            String[]
   summary         String?   @db.Text
-  
   isViewed        Boolean   @default(false)
   createdAt       DateTime  @default(now())
 
   @@map("job_matches")
 }
 
-// ========== Saved Jobs (Bookmarks) ==========
+// ========== Saved Jobs ==========
 model SavedJob {
   id          String    @id @default(cuid())
   userId      String
@@ -147,7 +138,7 @@ model SavedJob {
   @@map("saved_jobs")
 }
 
-// ========== Message System ==========
+// ========== Messages ==========
 model Message {
   id          String    @id @default(cuid())
   senderId    String
@@ -155,7 +146,7 @@ model Message {
   receiverId  String
   receiver    User      @relation(fields: [receiverId], references: [id], name: "Receiver")
   content     String    @db.Text
-  jobId       String?   // Optional job context
+  jobId       String?
   read        Boolean   @default(false)
   createdAt   DateTime  @default(now())
 
@@ -163,7 +154,6 @@ model Message {
 }
 
 // ========== Enums ==========
-
 enum Role {
   ADMIN
   HR
