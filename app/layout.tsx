@@ -4,7 +4,6 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
-import { setupAdmin } from '@/lib/adminSetup'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -13,10 +12,20 @@ export const metadata: Metadata = {
   description: 'AI-powered resume parser and job matching platform',
 }
 
-//  Run admin setup when server starts
-if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'production') {
-  // This runs once when the server starts
-  setupAdmin().catch(console.error)
+// ✅ Move admin setup to a separate file that handles errors
+async function initializeApp() {
+  try {
+    const { setupAdmin } = await import('@/lib/adminSetup')
+    await setupAdmin()
+  } catch (error) {
+    console.error('App initialization error:', error)
+  }
+}
+
+// ✅ Run admin setup when server starts
+// This runs only once on server startup
+if (typeof window === 'undefined') {
+  initializeApp().catch(console.error)
 }
 
 export default function RootLayout({

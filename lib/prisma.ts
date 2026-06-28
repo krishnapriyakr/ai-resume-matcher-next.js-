@@ -1,16 +1,21 @@
-// lib/prisma.ts
-
 import { PrismaClient } from '@prisma/client'
+import { PrismaNeon } from '@prisma/adapter-neon'
+import { neon } from '@neondatabase/serverless'
 
-// Global variable to prevent multiple connections in development
+// Create a neon database connection
+const connectionString = process.env.DATABASE_URL
+const sql = neon(connectionString!)
+const adapter = new PrismaNeon(sql)
+
 const globalForPrisma = global as unknown as { prisma: PrismaClient }
 
-// Create single Prisma instance
-export const prisma = globalForPrisma.prisma || new PrismaClient()
+export const prisma =
+  globalForPrisma.prisma ||
+  new PrismaClient({
+    adapter, // ✅ This is the required adapter
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  })
 
-// In development, reuse the same connection
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma
-}
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 
 export default prisma

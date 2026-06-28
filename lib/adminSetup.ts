@@ -1,35 +1,27 @@
 // lib/adminSetup.ts
 
-import 'server-only' //  Prevents this from running on client
-import { prisma } from './prisma'
+import prisma from './prisma'
 import bcrypt from 'bcryptjs'
 
-let isSetupDone = false //  Prevents multiple runs
-
 export async function setupAdmin() {
-  // ✅ Only run once
-  if (isSetupDone) {
-    return
-  }
-
   try {
+    // ✅ Check if DATABASE_URL is set
+    if (!process.env.DATABASE_URL) {
+      console.log(' DATABASE_URL not set. Skipping admin setup.')
+      return
+    }
+
+    // ✅ Check if admin credentials are set
     const adminEmail = process.env.ADMIN_EMAIL
     const adminPassword = process.env.ADMIN_PASSWORD
     const adminName = process.env.ADMIN_NAME || 'System Admin'
 
-    // Check if admin credentials are set
     if (!adminEmail || !adminPassword) {
       console.log(' Admin credentials not set in environment variables')
       return
     }
 
-    // ✅ Check if prisma is available
-    if (!prisma) {
-      console.log(' Prisma client not initialized yet')
-      return
-    }
-
-    // Check if admin already exists
+    // ✅ Check if admin already exists
     const existingAdmin = await prisma.user.findUnique({
       where: { email: adminEmail },
     })
@@ -50,10 +42,7 @@ export async function setupAdmin() {
     } else {
       console.log(` Admin already exists: ${adminEmail}`)
     }
-
-    isSetupDone = true
   } catch (error) {
     console.error(' Admin setup error:', error)
-    // Don't throw - let the app start even if admin setup fails
   }
 }
